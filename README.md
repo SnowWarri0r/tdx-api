@@ -8,6 +8,11 @@
 
 **感谢源作者 [injoyai](https://github.com/injoyai/tdx)，请支持原作者！**
 
+> **本 fork 的改动**（[SnowWarri0r](https://github.com/SnowWarri0r/tdx-api)）：
+> - 🔌 **端口可配**：环境变量 `TDX_PORT` 指定监听端口（默认 8080），不再硬编码，避免与其它服务冲突
+> - 🛠️ **构建简化**：根目录加 `Makefile`（`make run`）和 `start.sh` 一键启动（主程序在 `web/` 子模块，原 `go build .` 会误编库）
+> - 🧹 **仓库瘦身**：移除误提交的 `server.exe`/`tdx-api-main.rar`/`__pycache__`，补 `.gitignore`
+
 ---
 
 ## ✨ 功能特性
@@ -45,17 +50,22 @@ docker-compose up -d
 ```bash
 # 前置要求: Go 1.22+
 
-# 1. 下载依赖
-go mod download
+# 最简: 根目录一键(自动编译 web/ 子模块 → ./tdx-server)
+./start.sh                 # 默认 8080
+TDX_PORT=8081 ./start.sh   # 自定义端口
 
-# 2. 进入web目录并运行
-cd web
-go run .
+# 或用 Makefile
+make run                   # = 编译并启动
+TDX_PORT=8081 make run
 
-# 3. 访问 http://localhost:8080
+# 或手动(主程序在 web/, 不能在根目录 go build/run)
+cd web && go run .
 ```
 
-> ⚠️ **注意**: 必须使用 `go run .` 编译所有Go文件，不能使用 `go run server.go`
+> ⚠️ **注意**: 主程序(`package main`)在 `web/` 子模块, 根目录是 `injoyai/tdx` 库。
+> 必须 `cd web && go run .`(或用上面的 `start.sh`/`make`), 在根目录 `go build .` 只会编出库归档。
+>
+> **改端口**: 设 `TDX_PORT` 环境变量(默认 8080)。
 
 ---
 

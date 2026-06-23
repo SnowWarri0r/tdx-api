@@ -742,6 +742,9 @@ func main() {
 	http.HandleFunc("/api/tasks/", handleTaskOperations)
 
 	port := ":8080"
+	if p := os.Getenv("TDX_PORT"); p != "" {
+		port = ":" + p
+	}
 	log.Printf("服务启动成功，访问 http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 }

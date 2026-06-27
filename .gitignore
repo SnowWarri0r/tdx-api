@@ -1,0 +1,18 @@
+# 编译产物
+/tdx-server
+*.exe
+*.test
+*.out
+
+# 压缩包 / 临时
+*.rar
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+
+# 本地数据 / 日志
+web/data/
+*.log
+.DS_Store

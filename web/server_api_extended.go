@@ -125,6 +125,27 @@ func handleGetKlineHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 解析可选的日期区间 start_date/end_date (YYYYMMDD 或 YYYY-MM-DD)。
+	// 给了区间就按日期过滤(不再用 limit 截断), 修复 #25: 之前这两个参数被完全忽略。
+	var startDate, endDate time.Time
+	if s := strings.TrimSpace(r.URL.Query().Get("start_date")); s != "" {
+		t, e := parseWorkdayDate(s)
+		if e != nil {
+			errorResponse(w, "start_date 参数格式错误，应为 YYYYMMDD 或 YYYY-MM-DD")
+			return
+		}
+		startDate = t
+	}
+	if s := strings.TrimSpace(r.URL.Query().Get("end_date")); s != "" {
+		t, e := parseWorkdayDate(s)
+		if e != nil {
+			errorResponse(w, "end_date 参数格式错误，应为 YYYYMMDD 或 YYYY-MM-DD")
+			return
+		}
+		endDate = t.Add(24 * time.Hour) // 含 end 当天
+	}
+	hasRange := !startDate.IsZero() || !endDate.IsZero()
+
 	var resp *protocol.KlineResp
 	var err error
 
@@ -144,8 +165,8 @@ func handleGetKlineHistory(w http.ResponseWriter, r *http.Request) {
 		resp, err = getQfqKlineDay(code)
 		if err == nil {
 			resp = convertToWeekKline(resp)
-			// 限制返回数量
-			if len(resp.List) > int(limit) {
+			// 限制返回数量(给了日期区间则交由后面按日期过滤, 不预截)
+			if !hasRange && len(resp.List) > int(limit) {
 				resp.List = resp.List[len(resp.List)-int(limit):]
 				resp.Count = limit
 			}
@@ -155,8 +176,8 @@ func handleGetKlineHistory(w http.ResponseWriter, r *http.Request) {
 		resp, err = getQfqKlineDay(code)
 		if err == nil {
 			resp = convertToMonthKline(resp)
-			// 限制返回数量
-			if len(resp.List) > int(limit) {
+			// 限制返回数量(给了日期区间则交由后面按日期过滤, 不预截)
+			if !hasRange && len(resp.List) > int(limit) {
 				resp.List = resp.List[len(resp.List)-int(limit):]
 				resp.Count = limit
 			}
@@ -166,8 +187,8 @@ func handleGetKlineHistory(w http.ResponseWriter, r *http.Request) {
 	default:
 		// 日K线使用前复权
 		resp, err = getQfqKlineDay(code)
-		if err == nil && len(resp.List) > int(limit) {
-			// 只返回最近limit条
+		if err == nil && !hasRange && len(resp.List) > int(limit) {
+			// 只返回最近limit条(无日期区间时)
 			resp.List = resp.List[len(resp.List)-int(limit):]
 			resp.Count = limit
 		}
@@ -176,6 +197,22 @@ func handleGetKlineHistory(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errorResponse(w, fmt.Sprintf("获取K线失败: %v", err))
 		return
+	}
+
+	// 按日期区间过滤(修复 #25): start_date/end_date 现在真正生效
+	if hasRange && resp != nil {
+		filtered := resp.List[:0:0]
+		for _, k := range resp.List {
+			if !startDate.IsZero() && k.Time.Before(startDate) {
+				continue
+			}
+			if !endDate.IsZero() && !k.Time.Before(endDate) {
+				continue
+			}
+			filtered = append(filtered, k)
+		}
+		resp.List = filtered
+		resp.Count = uint16(len(filtered))
 	}
 
 	successResponse(w, resp)

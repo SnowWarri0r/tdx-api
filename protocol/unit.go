@@ -291,28 +291,24 @@ func IsETF(code string) bool {
 	return false
 }
 
-// AddPrefix 添加股票/基金代码前缀,针对股票/基金生效,例如000001,会增加前缀sz000001(平安银行),而不是sh000001(上证指数)
+// AddPrefix 添加股票/基金代码前缀,针对股票/基金生效,例如000001,会增加前缀sz000001(平安银行),而不是sh000001(上证指数)。
+// 按代码段整段判市场(此前枚举 510/511/512/513/515 漏掉 588 科创ETF、56x 新段ETF、514/516/517/518 等):
+//
+//	北交所: 92x/43x/8x/4x (92 需先于沪市 9 判定)
+//	上海:   6(股票) / 5(全部基金: 50x~58x 含 588) / 9(沪B 900)
+//	深圳:   其余 0/1/2/3 (股票 00/30、基金 15/16/18、深B 200)
 func AddPrefix(code string) string {
 	if len(code) == 6 {
 		switch {
-		case code[:1] == "6":
-			//上海股票
-			code = ExchangeSH.String() + code
-		case code[:1] == "0":
-			//深圳股票
-			code = ExchangeSZ.String() + code
-		case code[:2] == "30":
-			//深圳股票
-			code = ExchangeSZ.String() + code
-		case code[:3] == "510" || code[:3] == "511" || code[:3] == "512" || code[:3] == "513" || code[:3] == "515":
-			//上海基金
-			code = ExchangeSH.String() + code
-		case code[:3] == "159":
-			//深圳基金
-			code = ExchangeSZ.String() + code
-		case code[:1] == "8" || code[:2] == "92" || code[:2] == "43":
-			//北京股票
+		case code[:2] == "92" || code[:2] == "43" || code[:1] == "8" || code[:1] == "4":
+			//北京(须先判, 92 会被下面的 9 误认成沪B)
 			code = ExchangeBJ.String() + code
+		case code[:1] == "6" || code[:1] == "5" || code[:1] == "9":
+			//上海: 股票 6xx / 基金 5xx(510~588 整段) / B股 900
+			code = ExchangeSH.String() + code
+		default:
+			//深圳: 股票 00/30 / 基金 15x/16x/18x / B股 200
+			code = ExchangeSZ.String() + code
 		}
 	}
 	return code
